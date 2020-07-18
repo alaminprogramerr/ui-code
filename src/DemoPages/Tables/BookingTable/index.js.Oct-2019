@@ -1,0 +1,1019 @@
+import React, {Fragment} from 'react';
+import ReactCSSTransitionGroup from 'react-addons-css-transition-group';
+import {
+    Row, Col,
+    Card, CardBody,CardTitle,Form,FormGroup,Label,Container,Input, FormFeedback, FormText,
+    UncontrolledButtonDropdown, DropdownItem, DropdownMenu, DropdownToggle,  TabContent, TabPane,
+} from 'reactstrap';
+
+import BootstrapTable from 'react-bootstrap-table-next';
+import {makeData} from "./utils";
+import ReactTable from "react-table";
+import filterFactory, {textFilter,selectFilter} from 'react-bootstrap-table2-filter';
+import paginationFactory from 'react-bootstrap-table2-paginator';
+
+import PageTitle from '../../../Layout/AppMain/PageTitle';
+import BookingDetails from './BookingDetails';
+import BookingProvider from './BookingProvider'
+import ShirtComponent from './ShirtComponent';
+
+import { Button, Modal, ModalHeader, ModalBody, ModalFooter } from 'reactstrap';
+import classnames from 'classnames';
+import axios from 'axios';
+
+const API_URL = 'http://127.0.0.1:3001';
+const get_items_url = `${API_URL}/booking/getitems`;
+const get_item_grid_column_url = `${API_URL}/booking/getitem_measurements/`;
+const create_booking_url = `${API_URL}/booking/create`;
+
+const products = [
+    {
+        id: 'M123',
+        name: 'subhan',
+        contact: '9032222245',
+        status:'1 - Shirt Pending with Manju, \
+         1 - Trouser Pending with Raja,\
+         1 - Blazer Pending with Su',
+        total:'Shirt - 1 , Trousers -  1 , Blazer - 1 ',
+        vipFlag:'0'
+    },
+    {
+        id: 'M124',
+        name: 'abdul',
+        contact: '9032222236',
+        status:'1 - Shirt Pending with Manju, \
+         2 - Trouser Pending with Raja,\
+         4 - Blazer Pending with Su',
+        total:'Shirt - 1 , Trousers -  2 , Blazer - 4 ',
+        vipFlag:'0'
+    },
+    {
+        id: 'D124',
+        name: 'abdul',
+        contact: '9032222236',
+        status:'1 - Shirt Pending with Manju, \
+         2 - Trouser Pending with Raja,\
+         4 - Blazer Pending with Su',
+        total:'Shirt - 1 , Trousers -  2 , Blazer - 4 ',
+        vipFlag:'1'
+    },
+    {
+        id: 'M125',
+        name: 'shaheena',
+        contact: '9032222945',
+        status:'9 - Shirt Pending with Manju, \
+         6 - Trouser Pending with Raja,\
+         8 - Blazer Pending with Su',
+        total:'Shirt - 9 , Trousers -  6 , Blazer - 8 ',
+        vipFlag:'1'
+    },
+
+];
+
+
+const selectOptions = {
+  0: 'VIP',
+  1: 'Non VIP',
+};
+
+const columns = [
+    {
+        dataField: 'id',
+        text: 'Booking ID',
+        sort: true,
+      //  filter: textFilter()
+    },
+    {
+        dataField: 'name',
+        text: 'Customer Name',
+        sort: true,
+      //  filter: textFilter()
+    },
+    {
+        dataField: 'contact',
+        text: 'Contact#',
+        sort: true,
+        align: 'center',
+      //  filter: textFilter()
+    },
+    {
+        dataField: 'total',
+        isDummyField: false,
+        align: 'center',
+        text: 'Total Quantity',
+    },
+    {
+        dataField: 'status',
+        isDummyField: false,
+        align: 'center',
+        text: 'Status',
+    },
+    {
+        dataField: 'vipFlag',
+        isDummyField: false,
+        align: 'center',
+        text: 'VIP/Non VIP',
+        formatter: cell => selectOptions[cell],
+        filter: selectFilter({
+        options: selectOptions
+  })
+    }
+
+];
+
+const defaultSorted = [{
+    dataField: 'name',
+    order: 'desc'
+}];
+
+
+const rowEventsProp = {
+  onClick: (e, row, rowIndex) => {
+    let rowStr = '';
+    for (const prop in row) {
+      rowStr += prop + ': "' + row[prop] + '"';
+    }
+    alert(rowStr)
+  },
+
+};
+
+
+export default class BookingTable extends React.Component {
+
+   selectedRow :[]
+   nestedModal : false
+    constructor(props) {
+        super(props);
+        this.state = {
+          activeTab: '1',
+          modal:false,
+          selectedRow:[],
+          rowNumber:12,
+          item_tabs:[],
+          nestedModal: false,
+          Shirt_grid_items:[],
+          Pants_grid_items:[],
+          Jubba_grid_items:[],
+          Chudidar_grid_items:[],
+          Salwar_grid_items:[],
+          Safari_grid_items:[],
+          Suit_grid_items:[],
+          WaistCoat_grid_items:[],
+          Jodhpuri_grid_items:[],
+          WeddingCollection_grid_items:[],
+          customer_details : {},
+          booking_details : {},
+          booking_item_details : [],
+          customer_measurements:[],
+          data: makeData()
+        };
+
+        this.Shirt_Test = React.createRef();
+        this.toggle = this.toggle.bind(this);
+        this.saveBookingDetails = this.saveBookingDetails.bind(this);
+        this.handleCustomerNameChange = this.handleCustomerNameChange.bind(this);
+        this.handleCustomerContactChange = this.handleCustomerContactChange.bind(this);
+        this.handleCustomerAddressChange = this.handleCustomerAddressChange.bind(this);
+        this.handleCustomerVIPChange = this.handleCustomerVIPChange.bind(this);
+        this.handleCustomerLocalChange = this.handleCustomerLocalChange.bind(this);
+        
+        this.renderEditable = this.renderEditable.bind(this);
+        this.populateItemTab = this.populateItemTab.bind(this);
+    }
+
+    handleCustomerNameChange(event){
+      const customer = this.state.customer_details
+      customer["customer_name"] = event.target.value 
+      this.setState({customer_details: customer});
+    }
+    
+    handleCustomerAddressChange(event){
+      const customer = this.state.customer_details
+      customer["customer_address"] = event.target.value 
+      this.setState({customer_details: customer});
+    }
+    
+    handleCustomerContactChange(event){
+      const customer = this.state.customer_details
+      customer["customer_contact"] = event.target.value 
+      this.setState({customer_details: customer});
+    }
+    
+    handleCustomerVIPChange(event){
+      const customer = this.state.customer_details      
+      //TODO Need to change event.target.value 
+      //customer["vip_nonvip_flag"] = event.target.checked 
+      if (event.target.checked) {
+    	  customer["vip_nonvip_flag"] = event.target.checked 
+    	} else {
+    	  customer["vip_nonvip_flag"] = false 
+    	}
+      this.setState({customer_details: customer});
+    }
+    
+    handleCustomerLocalChange(event){
+      const customer = this.state.customer_details
+      //TODO Need to change event.target.value
+      if (event.target.checked) {
+    	  customer["local_nonlocal_flag"] = false 
+    	} else {
+    	  customer["local_nonlocal_flag"] = event.target.checked 
+    	}
+      
+      this.setState({customer_details: customer});
+    }
+  
+    renderEditable(cellInfo) {
+        return (
+            <div
+                style={{backgroundColor: "#fafafa",textAlign: "center" }}
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={e => {
+                    const data = [...this.state.data];
+                    data[cellInfo.index][cellInfo.column.id] = e.target.innerHTML;
+                    this.setState({data});
+                }}
+                dangerouslySetInnerHTML={{
+                    __html: this.state.data[cellInfo.index][cellInfo.column.id]
+                }}
+            />
+        );
+    }
+
+    populateItemTab(items){
+          axios({
+          method: 'get',
+          url: get_items_url,
+          })
+        .then((response) =>  {
+             this.setState({item_tabs: response.data.items})
+             response.data.items.map((item_type, index) =>
+             this.populateItem_Measurement_Grid_Columns(item_type)
+           );
+        })
+        .catch(function (error) {
+            alert(error)
+          console.log(error);
+        })
+        .finally(function () {
+          // always executed
+        });
+    }
+
+    populateItem_Measurement_Grid_Columns(measurement_category){
+
+      var finalURL = get_item_grid_column_url + measurement_category
+
+      //alert(finalURL)
+
+      var column_data = []
+
+        axios({
+        method: 'get',
+        url: finalURL,
+        })
+      .then((response) =>  {
+
+      response.data.map((measurement_data, index) =>
+        column_data.push({Header:measurement_data.Header,Cell:this.renderEditable, accessor: "firstName"})
+      );
+
+       switch (measurement_category) {
+         case "Shirt": this.setState({Shirt_grid_items: column_data})
+         case "Pants": this.setState({Pants_grid_items: column_data})
+         case "Jubba": this.setState({Jubba_grid_items: column_data})
+         case "Chudidar": this.setState({Chudidar_grid_items: column_data})
+         case "Salwar": this.setState({Salwar_grid_items: column_data})
+         case "Safari": this.setState({Safari_grid_items: column_data})
+         case "Suit": this.setState({Suit_grid_items: column_data})
+         case "Waist Coat": this.setState({WaistCoat_grid_items: column_data})
+         case "JodhPuri": this.setState({Jodhpuri_grid_items: column_data})
+         case "Wedding Collection": this.setState({WeddingCollection_grid_items: column_data})
+       }
+        })
+        .catch(function (error) {
+            alert(error)
+          console.log(error);
+        })
+        .finally(function () {
+          // always executed
+        });
+    }
+
+
+    componentDidMount=()=> {
+      this.populateItemTab()
+    }
+
+    onRowSelect(event,row,rowIndex){
+        this.selectedRow = row
+        this.nestedModal = true
+        this.setState(previousState => ({modal:!previousState.modal }))
+    }
+
+    callbackFunction(childData) {
+
+      alert("callbackFunction")
+      alert(childData)
+      
+     }
+
+    toggle() {
+
+      axios({
+      method: 'post',
+      url: create_booking_url,
+      data:{'booking_info':this.state.booking_data,'shirt_grid_data':"shirt_data"}
+      })
+      .then((response) =>  {
+           alert(JSON.stringify(response.data))
+      })
+      .catch(function (error) {
+          alert(error)
+        console.log(error);
+      })
+      .finally(function () {
+        // always executed
+      });
+
+      this.setState({
+          modal: !this.state.modal
+      });
+    }
+    
+    saveBookingDetails(){
+      
+      var input_data = {customer_details:this.state.customer_details,booking_details:this.state.booking_details,booking_item_details:this.state.booking_item_details,customer_measurements:this.state.customer_measurements}
+      
+      alert(JSON.stringify(input_data["customer_details"]))
+      
+      const current_Shirt_Test = this.Shirt_Test.current;
+      
+      alert(JSON.stringify(current_Shirt_Test.state.data))
+      
+      axios({
+      method: 'post',
+      url: create_booking_url,
+      data:input_data
+      })
+      .then((response) =>  {
+           alert(JSON.stringify(response.data))
+      })
+      .catch(function (error) {
+          alert(error)
+        console.log(error);
+      })
+      .finally(function () {
+        
+      });
+
+      this.setState({
+          modal: !this.state.modal
+      });
+      
+      this.setState({
+          customer_details: {},
+          booking_details:{},
+          booking_item_details:[],
+          customer_measurements:[]
+        })
+    }
+
+    toggleTab(tab) {
+      if (this.state.activeTab !== tab) {
+          this.setState({
+              activeTab: tab
+          });
+      }
+    }
+
+    render() {
+    return (
+        <Fragment>
+      
+            <PageTitle
+                heading="Grid Tables"
+                subheading="Basic example of a React table with sort, search and filter functionality."
+                icon="pe-7s-notebook icon-gradient bg-mixed-hopes"
+            />
+            <span className="d-inline-block mb-2 mr-2">
+            <Modal isOpen={this.state.modal} toggle={this.toggle} className={this.props.className}>
+              <ModalHeader toggle={this.toggle}>Booking Details</ModalHeader>
+              <ModalBody>
+              <Container fluid>
+                  <Card className="main-card mb-3">
+                      <CardBody>
+                          <Form>
+                              <FormGroup row>
+                                  <Label for="booking_id" sm={1}>Booking ID</Label>
+                                  <Col sm={2.5}>
+                                      <Input type="text" name="booking_id" id="booking_id"
+                                             placeholder=""/>
+                                  </Col>
+                                   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                  <Label for="booking_date" sm={1.5}>Booking Date</Label>
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                  <Col sm={2.5}>
+                                      <Input type="calendar" name="booking_date" id="booking_date"
+                                             placeholder=""/>
+                                  </Col>
+
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                                  <Label for="booking_status" sm={1.5}>Status</Label>
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                  <Col sm={2.5}>
+                                      <Input type="text" name="booking_status" id="booking_status"
+                                             placeholder=""/>
+                                  </Col>
+
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                  <FormGroup check>
+                                      <Label check>
+                                          <Input type="checkbox" id="booking_delivered"/>{' '}
+                                          Delivered
+                                      </Label>
+                                  </FormGroup>
+
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                <FormGroup check>
+                                    <Label check>
+                                        <Input type="checkbox" value ={this.state.customer_details["vip_nonvip_flag"]} onChange={this.handleCustomerVIPChange} id="booking_customer_vip"/>{' '}
+                                        VIP
+                                    </Label>
+                                </FormGroup>
+                              </FormGroup>
+                              <br/>
+                              <FormGroup row>
+                                  <Label for="customer_name" sm={1}>Customer Name</Label>
+                                  <Col sm={2.5}>
+                                      <Input type="text" name="customer_name" value ={this.state.customer_details["customer_name"]} onChange={this.handleCustomerNameChange} id="booking_customer_name"
+                                               placeholder=""/>
+                                  </Col>
+                                   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                  <Label for="delivery_date" sm={1.5}>Delivery Date</Label>
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                                  <Col sm={2.5}>
+                                      <Input type="calendar" name="delivery_date" id="booking_delivery_date"
+                                             placeholder=""/>
+                                  </Col>
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                  <Label for="delivery_time" sm={1.5}>Delivery Time</Label>
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                                    <Col sm={2.5}>
+                                      <Input type="calendar" name="delivery_time" id="booking_delivery_time"
+                                             placeholder=""/>
+                                  </Col>
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                <FormGroup check>
+                                    <Label check>
+                                        <Input type="checkbox" id="booking_priority"/>{' '}
+                                        Priority
+                                    </Label>
+                                </FormGroup>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              <FormGroup check>
+                                  <Label check>
+                                      <Input type="checkbox" value ={this.state.customer_details["local_nonlocal_flag"]} onChange={this.handleCustomerLocalChange} id="booking_customer_local"/>{' '}
+                                      Non Local
+                                  </Label>
+                              </FormGroup>
+
+                              </FormGroup>
+
+                              <FormGroup row>
+                                  <Label for="customer_contact" sm={1}>Contact#</Label>
+                                  <Col sm={2.5}>
+                                      <Input type="text" name="customer_contact" value ={this.state.customer_details["customer_contact"]} onChange={this.handleCustomerContactChange} id="booking_customer_contact"
+                                             placeholder=""/>
+                                  </Col>
+                                   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+
+                                  <Label for="delivered_to" sm={1.5}>Delivered To</Label>
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                                  <Col sm={2.5}>
+                                      <Input type="text" name="delivered_to" id="booking_delivered_to"
+                                             placeholder=""/>
+                                  </Col>
+
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                  <Label for="booking_quantity" sm={1.5}>Quantity</Label>
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                                    <Col sm={2.5}>
+                                      <Input type="calendar" name="booking_quantity" id="booking_quantity"
+                                             placeholder=""/>
+                                  </Col>
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                  <Col >
+
+                                  <Label select>
+                                    <Input type="select" name="select" id="booking_type_select" style={{"width":"100%","height":"35px"}}>
+                                        <option>Casual</option>
+                                        <option>Festival</option>
+                                        <option>Functions</option>
+                                        <option>Wedding</option>
+                                        <option>Birthday</option>
+
+                                    </Input>
+
+                                </Label>
+                                  </Col>
+                              </FormGroup>
+
+                              <br/>
+                          </Form>
+                          <div className="btn-actions-pane-right">
+                              <Button size="sm" outline color="alternate"
+                                      className={"btn-pill btn-wide " + classnames({active: this.state.activeTab === '1'})}
+                                      onClick={() => {
+                                          this.toggleTab('1');
+                                      }}>Address</Button>
+
+                                {this.state.item_tabs.map((tab_name, index) => (
+                                  <Button id={index} size="sm" outline color="alternate"
+                                          className={"btn-pill btn-wide " + classnames({active: this.state.activeTab === String(index + 2)})}
+                                          onClick={() => {
+                                              this.toggleTab(String(index+2));
+                                          }}>{tab_name}</Button>
+                                ))}
+
+                          </div>
+                          <br/>
+                          <TabContent activeTab={this.state.activeTab}>
+                          
+                              <TabPane tabId="1">
+                                      <br/>
+                                      <FormGroup>
+
+                                        <Input type="textarea" name="select" id="booking_customer_address" value ={this.state.customer_details["customer_address"]} onChange={this.handleCustomerAddressChange} style={{"width":"40%","height":"45%"}}/>
+
+                                      </FormGroup>
+                              </TabPane>
+                              <TabPane tabId="2">
+                              <br/>
+                              <br/>
+                              <ReactTable
+                                 showPaginationBottom={false}
+                                  minRows={1}
+                                  data={this.state.data}
+                                  columns={this.state.Shirt_grid_items}
+                                  className="-striped -highlight "
+                              />
+                              <br/><br/>
+                              <Form>
+
+                                  <FormGroup tag="fieldset">
+                                      <FormGroup check>
+                                           &nbsp;&nbsp;
+                                          <Label check>
+                                              <Input type="radio" name="booking_Shirt_SB_group"/>{' '}
+                                               BR
+                                           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                          </Label>
+                                          <Label check>
+                                              <Input type="radio" name="booking_Shirt_SB_group"/>{' '}
+                                              SB
+                                          </Label>
+
+                                           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                                          <Label check>
+                                              <Input type="radio" name="booking_Shirt_Patti_group"/>{' '}
+                                               A Patti
+                                           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                          </Label>
+                                          <Label check>
+                                              <Input type="radio" name="booking_Shirt_Patti_group"/>{' '}
+                                              Z Patti
+                                          </Label>
+
+                                          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                                            <Label check>
+                                                <Input type="radio" name="booking_Shirt_KB_group"/>{' '}
+                                                 KB
+                                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                            </Label>
+                                            <Label check>
+                                                <Input type="radio" name="booking_Shirt_KB_group"/>{' '}
+                                                GB
+                                            </Label>
+
+                                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+
+                                          <Label check>
+                                              <Input type="checkbox" id="booking_shirt_In_Pocket"/>{' '}
+                                              In Pocket
+
+                                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                                &nbsp;&nbsp;&nbsp;
+
+                                            </Label>
+                                            <Label select>
+                                              <Input type="select" name="select" id="booking_Shirt_Shoulder" style={{"width":"100%","height":"10%"}}>
+                                                  <option>Down Shoulder</option>
+                                                  <option>Round Shoulder</option>
+                                                  <option>Broad Shoulder</option>
+                                                  <option>High Shoulder</option>
+                                              </Input>
+
+                                          </Label>
+
+                                      </FormGroup>
+                                  <br/>
+                                  <FormGroup>
+                                  <Label textarea>   Comments </Label>
+
+                                    <Input type="textarea" name="select" id="booking_Shirt_Comments" style={{"width":"30%","height":"5%"}}/>
+
+
+
+                                  </FormGroup>
+                                  </FormGroup>
+
+                              </Form>
+                              </TabPane>
+                              <TabPane tabId="3">
+                              <ReactTable
+                                 showPaginationBottom={false}
+                                  minRows={1}
+                                  data={this.state.data}
+                                  columns={this.state.Pants_grid_items}
+                                  className="-striped -highlight"
+                              />
+
+                              <Label check>
+                                  <Input type="radio" name="booking_Pant_PL_group"/>{' '}
+                                   PL
+                               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              </Label>
+                              <Label check>
+                                  <Input type="radio" name="booking_Pant_PL_group"/>{' '}
+                                  Pleatless
+                              </Label>
+
+                              <Label select>
+                                <Input type="select" name="select" id="booking_pant_pocket" style={{"width":"100%","height":"10%"}}>
+                                    <option>Cross Pocket</option>
+                                    <option>Bone Pocket</option>
+                                    <option>L Pocket</option>
+                                    <option>Jean Pocket</option>
+                                </Input>
+                                  </Label>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                      &nbsp;&nbsp;&nbsp;
+                                <Label check>
+                                    <Input type="checkbox" id="booking_pant_grip"/>{' '}
+                                    Grip
+
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                      &nbsp;&nbsp;&nbsp;
+
+                                  </Label>
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                        &nbsp;&nbsp;&nbsp;
+                                  <Label check>
+                                      <Input type="checkbox" id="booking_pant_HP"/>{' '}
+                                      HP
+
+                                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                        &nbsp;&nbsp;&nbsp;
+
+                                    </Label>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                          &nbsp;&nbsp;&nbsp;
+                                    <Label check>
+                                        <Input type="checkbox" id="booking_pant_ringlength"/>{' '}
+                                        2Inch Ring Length
+
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                          &nbsp;&nbsp;&nbsp;
+
+                                      </Label>
+
+                              <br/>
+                              <FormGroup>
+                              <Label textarea>   Comments </Label>
+
+                                <Input type="textarea" name="select" id="booking_Pant_Comments" style={{"width":"30%","height":"5%"}}/>
+
+                              </FormGroup>
+                              </TabPane>
+                              <TabPane tabId="4">
+                              <ReactTable
+                                 showPaginationBottom={false}
+                                  minRows={1}
+                                  data={this.state.data}
+                                  columns={this.state.Jubba_grid_items}
+                                  className="-striped -highlight"
+                              />
+                              <Label check>
+                                  <Input type="radio" name="booking_Jubba_colar"/>{' '}
+                                  Tie Colar
+                               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              </Label>
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              <Label check>
+                                  <Input type="radio" name="booking_jubba_colar"/>{' '}
+                                  Band Colar
+                               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              </Label>
+                              <Label check>
+                                  <Input type="checkbox" id="booking_jubba_pataniround"/>{' '}
+                                  Patani Round
+
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                    &nbsp;&nbsp;&nbsp;
+
+                                </Label>
+                                <Label check>
+                                    <Input type="checkbox" id="booking_jubba_BR"/>{' '}
+                                    BR
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                                  </Label>
+                                  <Label check>
+                                      <Input type="checkbox" id="booking_jubba_roundneck"/>{' '}
+                                      Round Neck
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                                    </Label>
+                                    <br/>
+                                    <FormGroup>
+                                    <Label textarea>   Comments </Label>
+
+                                      <Input type="textarea" name="select" id="booking_jubba_Comments" style={{"width":"30%","height":"5%"}}/>
+
+                                    </FormGroup>
+                              </TabPane>
+                              <TabPane tabId="5">
+                              <ReactTable
+                                 showPaginationBottom={false}
+                                  minRows={1}
+                                  data={this.state.data}
+                                  columns={this.state.Chudidar_grid_items}
+                                  className="-striped -highlight"
+                              />
+                              <Label check>
+                                  <Input type="radio" name="booking_chudidar_nada"/>{' '}
+                                  Nada
+                               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              </Label>
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              <Label check>
+                                  <Input type="radio" name="booking_chudidar_nada"/>{' '}
+                                  Nada Elastic
+                               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              </Label>
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              <Label check>
+                                  <Input type="radio" name="booking_chudidar_nada"/>{' '}
+                                  Belt
+                               &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                              </Label>
+                              <br/>
+                              <FormGroup>
+                              <Label textarea>   Comments </Label>
+
+                                <Input type="textarea" name="select" id="booking_chudidar_Comments" style={{"width":"30%","height":"5%"}}/>
+
+                              </FormGroup>
+                              </TabPane>
+                              <TabPane tabId="6">
+                                <ReactTable
+                                   showPaginationBottom={false}
+                                    minRows={1}
+                                    data={this.state.data}
+                                    columns={this.state.Salwar_grid_items}
+                                    className="-striped -highlight"
+                                />
+
+                                <Label check>
+                                    <Input type="radio" name="booking_chudidar_nada"/>{' '}
+                                    Nada
+                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                </Label>
+                                <Label check>
+                                    <Input type="radio" name="booking_chudidar_nada"/>{' '}
+                                    Nada Elastic
+                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                </Label>
+                                <Label check>
+                                    <Input type="radio" name="booking_chudidar_nada"/>{' '}
+                                    Belt
+                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                </Label>
+                                <Label check>
+                                    <Input type="radio" name="booking_chudidar_pocket"/>{' '}
+                                    Side Pocket
+                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                </Label>
+                                <Label check>
+                                    <Input type="radio" name="booking_chudidar_pocket"/>{' '}
+                                    Patch Pocket
+                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                </Label>
+                                <br/>
+                                <FormGroup>
+                                <Label textarea>   Comments </Label>
+
+                                  <Input type="textarea" name="select" id="booking_chudidar_Comments" style={{"width":"30%","height":"5%"}}/>
+
+                                </FormGroup>
+                              </TabPane>
+                              <TabPane tabId="7">
+                                <ReactTable
+                                   showPaginationBottom={false}
+                                    minRows={1}
+                                    data={this.state.data}
+                                    columns={this.state.Safari_grid_items}
+                                    className="-striped -highlight"
+                                />
+                                <Label check>
+                                    <Input type="radio" name="booking_safari_cut"/>{' '}
+                                  Side Cut
+                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                </Label>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                <Label check>
+                                    <Input type="radio" name="booking_safari_cut"/>{' '}
+                                  Center Cut
+                                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                </Label>
+                                <br/>
+                                <FormGroup>
+                                <Label textarea>   Comments </Label>
+
+                                  <Input type="textarea" name="select" id="booking_safari_Comments" style={{"width":"30%","height":"5%"}}/>
+
+                                </FormGroup>
+                              </TabPane>
+                                <TabPane tabId="8">
+                              <ReactTable
+                                 showPaginationBottom={false}
+                                  minRows={1}
+                                  data={this.state.data}
+                                  columns={this.state.Suit_grid_items}
+                                  className="-striped -highlight"
+                              />
+
+                      <Label check>
+                        <Input type="radio" name="booking_Suit_Button"/>{' '}
+                          2 Buttons
+                              </Label>
+                              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                    &nbsp;&nbsp;&nbsp;
+                      <Label check>
+                        <Input type="radio" name="booking_Suit_Button"/>{' '}
+                                1 Button
+                                    </Label>
+                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                    &nbsp;&nbsp;&nbsp;&nbsp;
+                              <Label select>
+                                <Input type="select" name="select" id="booking_suit_colar" style={{"width":"100%","height":"10%"}}>
+                                    <option>DB Colar</option>
+                                    <option>SB Colar</option>
+                                    <option>SHALL Colar</option>
+                                </Input>
+                                  </Label>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                &nbsp;&nbsp;&nbsp;&nbsp;
+                              <Label select>
+                                <Input type="select" name="select" id="booking_suit_cut" style={{"width":"100%","height":"10%"}}>
+                                                  <option>Round Cut</option>
+                                                  <option>Square Cut</option>
+                                                  <option>Side Cut</option>
+                                                  <option>center Cut</option>
+                                              </Input>
+                                                </Label>
+                            <br/>
+                              <FormGroup>
+                              <Label textarea>   Comments </Label>
+                                 <Input type="textarea" name="select" id="booking_suit_Comments" style={{"width":"30%","height":"5%"}}/>
+                               </FormGroup>
+                            </TabPane>
+                              <TabPane tabId="9">
+                                <ReactTable
+                                   showPaginationBottom={false}
+                                    minRows={1}
+                                    data={this.state.data}
+                                    columns={this.state.WaistCoat_grid_items}
+                                    className="-striped -highlight"
+                                />
+                                <Label check>
+                                  <Input type="radio" name="booking_WaistCoat_cut"/>{' '}
+                                    Side Cut
+                                </Label>
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                      &nbsp;&nbsp;&nbsp;
+                                <Label check>
+                                    <Input type="radio" name="booking_WaistCoat_cut"/>{' '}
+                                      Center Cut
+                                </Label>
+                                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                              &nbsp;&nbsp;&nbsp;
+                                <br/>
+                                <FormGroup>
+                                      <Label textarea>   Comments </Label>
+                                      <Input type="textarea" name="select" id="booking_WaistCoat_Comments" style={{"width":"30%","height":"5%"}}/>
+                                     </FormGroup>
+                              </TabPane>
+
+                              <TabPane tabId="10">
+                              <ReactTable
+                                 showPaginationBottom={false}
+                                  minRows={1}
+                                  data={this.state.data}
+                                  columns={this.state.Jodhpuri_grid_items}
+                                  className="-striped -highlight"
+                              />
+                              <Label select>
+                                <Input type="select" name="select" id="booking_jodhpuri_cut" style={{"width":"100%","height":"10%"}}>
+                                                  <option>Round Cut</option>
+                                                  <option>Square Cut</option>
+                                                  <option>Side Cut</option>
+                                                  <option>center Cut</option>
+                                              </Input>
+                                                </Label>
+                            <br/>
+                              <FormGroup>
+                              <Label textarea>   Comments </Label>
+                              <Input type="textarea" name="select" id="booking_jodhpuri_Comments" style={{"width":"30%","height":"5%"}}/>
+                             </FormGroup>
+                              </TabPane>
+
+                              <TabPane tabId="11">
+                                <ReactTable
+                                   showPaginationBottom={false}
+                                    minRows={1}
+                                    data={this.state.data}
+                                    columns={this.state.WeddingCollection_grid_items}
+                                    className="-striped -highlight"
+                                />
+                              <br/>
+                              <FormGroup>
+                                    <Label textarea>   Comments </Label>
+                                    <Input type="textarea" name="select" id="booking_WeddingCollection_Comments" style={{"width":"30%","height":"5%"}}/>
+                                   </FormGroup>
+                              </TabPane>
+                              
+                              <TabPane tabId="12">
+                              
+                                      <ShirtComponent ref={this.Shirt_Test}  grid_data={this.state.data} grid_columns={this.state.Shirt_grid_items}/>
+                              </TabPane>
+                          </TabContent>
+                      </CardBody>
+                  </Card>
+              </Container>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="link" onClick={this.toggle}>Cancel</Button>
+                <Button color="primary" onClick={this.saveBookingDetails}>Save</Button>{' '}
+              </ModalFooter>
+            </Modal>
+          </span>
+                      <ReactCSSTransitionGroup
+                component="div"
+                transitionName="TabsAnimation"
+                transitionAppear={true}
+                transitionAppearTimeout={0}
+                transitionEnter={false}
+                transitionLeave={false}>
+                <Row>
+                    <Col md="12">
+                        <Card className="main-card mb-3">
+                            <CardBody>
+                                <div className="table-responsive">
+                                    <BootstrapTable
+                                        bootstrap4
+                                        keyField="id"
+                                        data={products}
+                                        rowEvents = {{ onClick:this.onRowSelect.bind(this) }}
+                                        columns={columns}
+                                        pagination={ paginationFactory() }
+                                        filter={filterFactory()}
+                                        defaultSorted={defaultSorted}
+                                    />
+                                </div>
+                            </CardBody>
+                        </Card>
+                    </Col>
+                </Row>
+            </ReactCSSTransitionGroup>
+        
+        </Fragment>
+    );
+  }
+}

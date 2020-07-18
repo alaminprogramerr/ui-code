@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../../Tableau/Tableauemailtouser"
+		},
+		{
+			"path": "../../../.."
+		}
+	],
+	"settings": {
+		"git.ignoreLimitWarning": true
+	}
+}
